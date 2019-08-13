@@ -84,13 +84,13 @@ def mbb_range(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq,
 
     return (np.min(mbbs), np.max(mbbs))
 
-def mb(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq, phi2, phi3, hierarchy):
+def mb(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq, hierarchy):
     '''Compute the effective Majorana mass for given parameters.
 
     For light neutrino exchange-mediated neutrinoless double-beta decay, the
     effective Majorana mass is
 
-        mbb = sum [ (U_ek)^2 m_k ], k = 1, 2, 3
+        mb = sum [ (U_ek)^2 m_k ], k = 1, 2, 3
 
     :param m1: Mass of the m1 eigenstate
     :param s12sq: sin^2 theta12
@@ -98,10 +98,8 @@ def mb(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq, phi2, phi3, hierarchy):
     :param s23sq: sin^2 theta23
     :param dm21sq: Delta m21 squared
     :param dm32sq: Delta m32 squared
-    :param phi2: First Majorana phase
-    :param phi3: Second Majorana phase
     :param hierarchy: Positive for normal, negative for inverted
-    :returns: mbb in the same units as m1
+    :returns: mb in the same units as m1
     '''
     t12 = np.arcsin(np.sqrt(s12sq))
     t13 = np.arcsin(np.sqrt(s13sq))
@@ -116,24 +114,12 @@ def mb(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq, phi2, phi3, hierarchy):
         m3 = np.sqrt(np.square(m2) + dm21sq)
         m1, m3 = m3, m1
 
-    mb = np.abs(np.square(np.cos(t13)) * np.square(np.cos(t12)) * m1 +
-                 np.square(np.cos(t13)) * s12sq * m2 * np.exp(1j * phi2) +
-                 s13sq * m3 * np.exp(1j * phi3))
+    mb = np.sqrt(np.square(m1) * np.square(np.cos(t13)) * np.square(np.cos(t12)) +
+    np.square(np.cos(t13)) * s12sq * np.square(m2) + s13sq * np.square(m3))
 
     return mb
-def plot(s12sq, s13sq, s23sq, dm21sq, dm32sq,
-         hierarchy, step=0.005, name='graph'):
-    '''Make a plot for the given parameters.
 
-    :param s12sq: sin^2 theta12
-    :param s13sq: sin^2 theta13
-    :param s23sq: sin^2 theta23
-    :param dm21sq: Delta m21 squared
-    :param dm32sq: Delta m32 squared
-    :param hierarchy: Positive for normal, negative for inverted
-    :returns: A TGraph with the allowed area filled in
-    '''
-    def plot(s12sq, s13sq, s23sq, dm21sq, dm32sq,
+def plot(s12sq, s13sq, s23sq, dm21sq, dm32sq,
          hierarchy, step=0.005, name='graph'):
     '''Make a plot for the given parameters.
 
@@ -175,6 +161,85 @@ def plot(s12sq, s13sq, s23sq, dm21sq, dm32sq,
 
     plt.ylabel('|<$m_{\\beta \\beta}$>| (eV)', fontsize=14)
     plt.xlabel('$m_{lightest}$ (eV)', fontsize=14)
+
+
+def mbb_mb(m1, s12sq, s13sq, s23sq, dm21sq, dm32sq, phi2, phi3, hierarchy):
+    '''Compute parametrization mass mß and
+    effective Majorana mass mßß as a function of mß'''
+
+    t12 = np.arcsin(np.sqrt(s12sq))
+    t13 = np.arcsin(np.sqrt(s13sq))
+    t23 = np.arcsin(np.sqrt(s23sq))
+
+    ue1sq = np.square(np.cos(t13)) * np.square(np.cos(t12))
+    ue2sq = np.square(np.cos(t13)) * s12sq
+    ue3sq = s13sq
+
+    if hierarchy > 0:
+        m2 = np.sqrt(np.square(m1) + dm21sq)
+        m3 = np.sqrt(np.square(m2) + dm32sq)
+    elif hierarchy < 0:
+        # m3 is the lighest!
+        m2 = np.sqrt(np.square(m1) + dm32sq)
+        m3 = np.sqrt(np.square(m2) + dm21sq)
+        m1, m3 = m3, m1
+
+    mb = np.sqrt(np.square(m1) * ue1sq +
+                 ue2sq * np.square(m2) + ue3sq * np.square(m3))
+
+    mbb = np.abs(np.sqrt(np.square(mb) - ue2sq * np.square(m2) - ue3sq * np.square(m3)) +
+                 ue2sq * m2 * np.exp(1j * phi2) +
+                 ue3sq * m3 * np.exp(1j * phi3))
+
+    return mbb
+
+def plot_mbb_mb(s12sq, s13sq, s23sq, dm21sq, dm32sq,
+         hierarchy, step=0.005, name='graph', alpha=0.5):
+    '''Make a plot for the given parameters.
+
+    :param s12sq: sin^2 theta12
+    :param s13sq: sin^2 theta13
+    :param s23sq: sin^2 theta23
+    :param dm21sq: Delta m21 squared
+    :param dm32sq: Delta m32 squared
+    :param hierarchy: Positive for normal, negative for inverted
+    :returns: A TGraph with the allowed area filled in
+    '''
+    # Values of m_lightest to evaluate [eV]
+    x = np.logspace(-5, 0, 100)
+
+    # Loop over m_lightests to find the mbb range for each
+    y = []
+#     print('Hierarchy = ', hierarchy)
+    for m in x:
+        r = mbb_mb_range(m, s12sq, s13sq, s23sq, dm21sq, dm32sq,
+                      hierarchy=hierarchy, step=step)
+        y.append(r)
+
+    # Invert to get a tuple of (lower bounds, upper bounds)
+#     b = [list(t) for t in y]
+
+    up = [y[i][0] for i in range(len(y))]
+    dw = [y[i][1] for i in range(len(y))]
+
+    #g = ROOT.TGraph(2 * len(x))
+    #g.SetName(name)
+
+    if hierarchy == -1:
+        MB = mb(x, s12sq, s13sq, s23sq, dm21sq, dm32sq, hierarchy)
+        color = 'r'
+    else:
+        MB = mb(x, s12sq, s13sq, s23sq, dm21sq, dm32sq, hierarchy=hierarchy)
+        color = 'b'
+
+#     print(y, up, dw)
+
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.fill_between(MB, up, dw, color=color, alpha=alpha)
+
+
+
 
 def plot_root(s12sq, s13sq, s23sq, dm21sq, dm32sq,
          hierarchy=1, step=0.005, name='graph'):
